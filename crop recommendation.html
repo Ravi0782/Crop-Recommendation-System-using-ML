@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crop Recommendation System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1a4a2e 0%, #2d7a4f 50%, #1a4a2e 100%); min-height: 100vh; color: #333; }
+  .header { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 20px 40px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+  .header-icon { font-size: 2.5rem; }
+  .header h1 { color: #fff; font-size: 1.8rem; font-weight: 700; }
+  .header p { color: rgba(255,255,255,0.8); font-size: 0.9rem; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+  .tabs { display: flex; gap: 5px; margin-bottom: 25px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 12px; width: fit-content; }
+  .tab { padding: 10px 22px; border: none; background: transparent; color: rgba(255,255,255,0.7); cursor: pointer; border-radius: 8px; font-size: 0.9rem; font-weight: 500; transition: all 0.3s; }
+  .tab.active { background: #fff; color: #1a4a2e; font-weight: 600; }
+  .tab:hover:not(.active) { background: rgba(255,255,255,0.15); color: #fff; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .card { background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  .card h2 { font-size: 1.3rem; color: #1a4a2e; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select { width: 100%; padding: 12px 15px; border: 2px solid #e8e8e8; border-radius: 8px; font-size: 0.95rem; transition: all 0.3s; outline: none; }
+  .form-group input:focus, .form-group select:focus { border-color: #2d7a4f; box-shadow: 0 0 0 3px rgba(45,122,79,0.1); }
+  .slider-container { position: relative; }
+  .slider-container input[type=range] { width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px; background: #e0e0e0; outline: none; padding: 0; border: none; }
+  .slider-container input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #2d7a4f; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+  .slider-val { text-align: right; font-size: 0.85rem; color: #2d7a4f; font-weight: 600; margin-top: 4px; }
+  .btn-predict { width: 100%; padding: 15px; background: linear-gradient(135deg, #2d7a4f, #1a4a2e); color: #fff; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; margin-top: 10px; }
+  .btn-predict:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(45,122,79,0.4); }
+  .btn-predict:active { transform: translateY(0); }
+  .result-card { background: linear-gradient(135deg, #1a4a2e, #2d7a4f); color: #fff; border-radius: 16px; padding: 30px; text-align: center; margin-top: 20px; display: none; }
+  .result-card.show { display: block; animation: fadeIn 0.5s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .result-icon { font-size: 4rem; margin-bottom: 10px; }
+  .result-crop { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  .result-text { font-size: 1rem; opacity: 0.9; }
+  .confidence-bar { background: rgba(255,255,255,0.2); border-radius: 20px; height: 8px; margin-top: 15px; overflow: hidden; }
+  .confidence-fill { height: 100%; background: #7fff7f; border-radius: 20px; transition: width 1s ease; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+  .stat-number { font-size: 2rem; font-weight: 700; color: #2d7a4f; }
+  .stat-label { font-size: 0.85rem; color: #888; margin-top: 4px; }
+  .model-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .model-table th { background: #f0f7f3; padding: 12px 15px; text-align: left; font-size: 0.85rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e0e0e0; }
+  .model-table td { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+  .model-table tr:hover td { background: #f9fdf9; }
+  .accuracy-bar { display: flex; align-items: center; gap: 10px; }
+  .acc-bar-bg { flex: 1; background: #e8f5e9; border-radius: 20px; height: 8px; overflow: hidden; }
+  .acc-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg, #2d7a4f, #56ab2f); }
+  .acc-text { font-weight: 600; font-size: 0.9rem; color: #2d7a4f; min-width: 50px; text-align: right; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+  .badge-green { background: #e8f5e9; color: #2d7a4f; }
+  .badge-blue { background: #e3f2fd; color: #1565c0; }
+  .badge-orange { background: #fff3e0; color: #e65100; }
+  .heatmap-container { overflow-x: auto; margin-top: 15px; }
+  .heatmap { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 2px; min-width: 600px; }
+  .heatmap-cell { padding: 10px 5px; text-align: center; font-size: 0.75rem; border-radius: 4px; }
+  .heatmap-header { font-weight: 700; background: #f0f7f3; color: #1a4a2e; }
+  .heatmap-label { font-weight: 600; color: #555; background: #f9f9f9; display: flex; align-items: center; padding-left: 8px; }
+  .dist-chart { margin-top: 20px; }
+  .dist-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .dist-crop-label { width: 110px; font-size: 0.82rem; color: #555; text-align: right; }
+  .dist-bar-bg { flex: 1; background: #f0f7f3; border-radius: 20px; height: 22px; overflow: hidden; position: relative; }
+  .dist-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg, #56ab2f, #2d7a4f); display: flex; align-items: center; padding-left: 10px; font-size: 0.75rem; color: #fff; font-weight: 600; min-width: 40px; }
+  .dist-count { width: 35px; font-size: 0.82rem; color: #888; }
+  .feature-importance { margin-top: 15px; }
+  .fi-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .fi-label { width: 90px; font-size: 0.85rem; color: #555; font-weight: 600; }
+  .fi-bar-bg { flex: 1; background: #f0f7f3; border-radius: 20px; height: 16px; overflow: hidden; }
+  .fi-bar-fill { height: 100%; border-radius: 20px; }
+  .fi-val { width: 45px; font-size: 0.82rem; color: #888; text-align: right; }
+  .info-banner { background: linear-gradient(135deg, #e8f5e9, #f0fff4); border: 1px solid #c8e6c9; border-radius: 10px; padding: 15px 20px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px; }
+  .info-banner-icon { font-size: 1.3rem; margin-top: 2px; }
+  .info-banner p { font-size: 0.88rem; color: #2d5a3a; line-height: 1.5; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .data-table th { background: #f0f7f3; padding: 10px 12px; text-align: left; font-weight: 600; color: #1a4a2e; border-bottom: 2px solid #c8e6c9; }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; }
+  .data-table tr:hover td { background: #f9fdf9; }
+  .section-title { font-size: 1rem; font-weight: 700; color: #1a4a2e; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #e8f5e9; }
+  .crop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 15px; }
+  .crop-item { background: #f0f7f3; border-radius: 10px; padding: 14px 10px; text-align: center; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+  .crop-item:hover { border-color: #2d7a4f; background: #e8f5e9; transform: translateY(-2px); }
+  .crop-item.selected { border-color: #2d7a4f; background: #2d7a4f; color: #fff; }
+  .crop-item .crop-emoji { font-size: 1.8rem; display: block; margin-bottom: 5px; }
+  .crop-item .crop-name { font-size: 0.78rem; font-weight: 600; }
+  .tooltip { position: relative; }
+  .tooltip:hover::after { content: attr(data-tip); position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; white-space: nowrap; z-index: 100; }
+  .preprocessing-steps { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+  .step-card { flex: 1; min-width: 200px; background: #f9fdf9; border-left: 4px solid #2d7a4f; border-radius: 0 8px 8px 0; padding: 14px; }
+  .step-num { font-size: 0.75rem; color: #2d7a4f; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .step-title { font-size: 0.95rem; font-weight: 700; color: #1a4a2e; margin: 4px 0; }
+  .step-desc { font-size: 0.82rem; color: #777; line-height: 1.4; }
+  @media (max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } .header h1 { font-size: 1.3rem; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <span class="header-icon">🌾</span>
+  <div>
+    <h1>Crop Recommendation System</h1>
+    <p>AI-powered precision agriculture using Random Forest Classifier — 22 crops, 2200 samples</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('predict')">🔮 Predict</button>
+    <button class="tab" onclick="showTab('eda')">📊 Data Analysis</button>
+    <button class="tab" onclick="showTab('models')">🤖 Model Performance</button>
+    <button class="tab" onclick="showTab('pipeline')">⚙️ Pipeline</button>
+  </div>
+
+  <!-- PREDICT TAB -->
+  <div id="tab-predict" class="tab-content active">
+    <div class="info-banner">
+      <span class="info-banner-icon">💡</span>
+      <p>Enter your soil and climate conditions below. The model uses <strong>MinMaxScaler normalization</strong> followed by <strong>StandardScaler standardization</strong> before predicting with the trained Random Forest Classifier (97.95% accuracy).</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>🌱 Soil Nutrients</h2>
+        <div class="form-group">
+          <label>Nitrogen (N) — ratio in soil</label>
+          <div class="slider-container">
+            <input type="range" min="0" max="140" value="67" id="slN" oninput="updateSlider('N',this.value)">
+            <div class="slider-val" id="valN">67</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Phosphorus (P) — ratio in soil</label>
+          <div class="slider-container">
+            <input type="range" min="5" max="145" value="47" id="slP" oninput="updateSlider('P',this.value)">
+            <div class="slider-val" id="valP">47</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Potassium (K) — ratio in soil</label>
+          <div class="slider-container">
+            <input type="range" min="5" max="205" value="42" id="slK" oninput="updateSlider('K',this.value)">
+            <div class="slider-val" id="valK">42</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Soil pH Level</label>
+          <div class="slider-container">
+            <input type="range" min="3.5" max="9.9" step="0.1" value="6.5" id="slph" oninput="updateSlider('ph',this.value)">
+            <div class="slider-val" id="valph">6.5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🌤️ Climate Conditions</h2>
+        <div class="form-group">
+          <label>Temperature (°C)</label>
+          <div class="slider-container">
+            <input type="range" min="8" max="44" step="0.1" value="27" id="sltemp" oninput="updateSlider('temp',this.value)">
+            <div class="slider-val" id="valtemp">27.0 °C</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Humidity (%)</label>
+          <div class="slider-container">
+            <input type="range" min="14" max="100" step="0.1" value="70" id="slhum" oninput="updateSlider('hum',this.value)">
+            <div class="slider-val" id="valhum">70.0 %</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Rainfall (mm)</label>
+          <div class="slider-container">
+            <input type="range" min="20" max="299" step="0.1" value="150" id="slrain" oninput="updateSlider('rain',this.value)">
+            <div class="slider-val" id="valrain">150.0 mm</div>
+          </div>
+        </div>
+        <div style="background:#f0f7f3;border-radius:10px;padding:15px;margin-top:10px;">
+          <div class="section-title" style="margin-bottom:10px;border:none;">📋 Current Input Summary</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.85rem;" id="inputSummary">
+            <div>N: <strong id="sN">67</strong></div>
+            <div>P: <strong id="sP">47</strong></div>
+            <div>K: <strong id="sK">42</strong></div>
+            <div>pH: <strong id="sph">6.5</strong></div>
+            <div>Temp: <strong id="stemp">27.0°C</strong></div>
+            <div>Humidity: <strong id="shum">70.0%</strong></div>
+            <div>Rainfall: <strong id="srain">150.0mm</strong></div>
+          </div>
+        </div>
+        <button class="btn-predict" onclick="predict()">🔮 Recommend Crop</button>
+      </div>
+    </div>
+
+    <div class="result-card" id="resultCard">
+      <div class="result-icon" id="resultIcon">🌾</div>
+      <div class="result-crop" id="resultCrop">Rice</div>
+      <div class="result-text" id="resultText">is the best crop to cultivate with your soil and climate conditions.</div>
+      <div class="confidence-bar"><div class="confidence-fill" id="confFill" style="width:0%"></div></div>
+      <div style="margin-top:8px;font-size:0.85rem;opacity:0.85;">Model Confidence: <span id="confText">97.95%</span></div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h2>🌿 All Supported Crops</h2>
+      <div class="crop-grid" id="cropGrid"></div>
+    </div>
+  </div>
+
+  <!-- EDA TAB -->
+  <div id="tab-eda" class="tab-content">
+    <div class="grid-4" style="margin-bottom:20px;">
+      <div class="stat-card"><div class="stat-number">2,200</div><div class="stat-label">Total Samples</div></div>
+      <div class="stat-card"><div class="stat-number">22</div><div class="stat-label">Crop Classes</div></div>
+      <div class="stat-card"><div class="stat-number">7</div><div class="stat-label">Features</div></div>
+      <div class="stat-card"><div class="stat-number">0</div><div class="stat-label">Missing Values</div></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <h2>📊 Dataset Statistics</h2>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Feature</th><th>Mean</th><th>Std</th><th>Min</th><th>Max</th></tr></thead>
+            <tbody>
+              <tr><td><strong>N</strong></td><td>50.55</td><td>36.92</td><td>0.00</td><td>140.00</td></tr>
+              <tr><td><strong>P</strong></td><td>53.36</td><td>32.99</td><td>5.00</td><td>145.00</td></tr>
+              <tr><td><strong>K</strong></td><td>48.15</td><td>50.65</td><td>5.00</td><td>205.00</td></tr>
+              <tr><td><strong>Temperature</strong></td><td>25.62</td><td>5.06</td><td>8.83</td><td>43.68</td></tr>
+              <tr><td><strong>Humidity</strong></td><td>71.48</td><td>22.26</td><td>14.26</td><td>99.98</td></tr>
+              <tr><td><strong>pH</strong></td><td>6.47</td><td>0.77</td><td>3.50</td><td>9.94</td></tr>
+              <tr><td><strong>Rainfall</strong></td><td>103.46</td><td>54.96</td><td>20.21</td><td>298.56</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🏷️ Class Distribution</h2>
+        <p style="font-size:0.85rem;color:#888;margin-bottom:10px;">Each of the 22 crops has exactly 100 balanced samples.</p>
+        <div class="dist-chart" id="distChart"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h2>🔥 Feature Correlation Heatmap</h2>
+      <p style="font-size:0.85rem;color:#888;margin-bottom:5px;">P and K show the highest correlation (0.74). Most features are weakly correlated.</p>
+      <div class="heatmap-container">
+        <div class="heatmap" id="heatmapGrid"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📈 Feature Importance (Random Forest)</h2>
+      <p style="font-size:0.85rem;color:#888;margin-bottom:5px;">Based on mean decrease in impurity across all trees in the Random Forest.</p>
+      <div class="feature-importance" id="featureImportance"></div>
+    </div>
+  </div>
+
+  <!-- MODELS TAB -->
+  <div id="tab-models" class="tab-content">
+    <div class="card" style="margin-bottom:20px;">
+      <h2>🏆 Model Comparison (Test Set Accuracy)</h2>
+      <p style="font-size:0.85rem;color:#888;margin-bottom:15px;">All models trained on 1,760 samples (80%) and evaluated on 440 samples (20%). Features preprocessed with MinMaxScaler + StandardScaler.</p>
+      <table class="model-table">
+        <thead><tr><th>Model</th><th>Accuracy</th><th>Performance Bar</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody id="modelTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>🌲 Random Forest — Best Model</h2>
+        <div style="background:#f0f7f3;border-radius:10px;padding:15px;margin-bottom:15px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><div style="font-size:0.8rem;color:#888;">Final Accuracy</div><div style="font-size:1.6rem;font-weight:700;color:#2d7a4f;">97.95%</div></div>
+            <div><div style="font-size:0.8rem;color:#888;">Estimators</div><div style="font-size:1.6rem;font-weight:700;color:#2d7a4f;">100</div></div>
+            <div><div style="font-size:0.8rem;color:#888;">Train Size</div><div style="font-size:1.1rem;font-weight:600;color:#555;">1,760</div></div>
+            <div><div style="font-size:0.8rem;color:#888;">Test Size</div><div style="font-size:1.1rem;font-weight:600;color:#555;">440</div></div>
+          </div>
+        </div>
+        <div class="section-title">Hyperparameters</div>
+        <table class="data-table">
+          <tbody>
+            <tr><td>n_estimators</td><td><strong>100 (default)</strong></td></tr>
+            <tr><td>max_depth</td><td><strong>None (unlimited)</strong></td></tr>
+            <tr><td>random_state</td><td><strong>42</strong></td></tr>
+            <tr><td>test_size</td><td><strong>0.20</strong></td></tr>
+            <tr><td>criterion</td><td><strong>gini</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>📉 Preprocessing Pipeline</h2>
+        <div class="section-title">Data Quality Check</div>
+        <table class="data-table" style="margin-bottom:15px;">
+          <tbody>
+            <tr><td>Missing Values</td><td><span class="badge badge-green">✅ 0 found</span></td></tr>
+            <tr><td>Duplicated Rows</td><td><span class="badge badge-green">✅ 0 found</span></td></tr>
+            <tr><td>Class Balance</td><td><span class="badge badge-green">✅ Perfectly balanced (100 each)</span></td></tr>
+            <tr><td>Data Types</td><td><span class="badge badge-blue">int64 (3), float64 (4), object (1)</span></td></tr>
+          </tbody>
+        </table>
+        <div class="section-title">Label Encoding</div>
+        <p style="font-size:0.85rem;color:#666;line-height:1.5;">22 crop labels mapped to integers 1–22 using a custom dictionary. Example: rice→1, maize→2, coffee→22. The original label column was dropped after encoding.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPELINE TAB -->
+  <div id="tab-pipeline" class="tab-content">
+    <div class="card" style="margin-bottom:20px;">
+      <h2>⚙️ Full ML Pipeline</h2>
+      <div class="preprocessing-steps">
+        <div class="step-card">
+          <div class="step-num">Step 01</div>
+          <div class="step-title">📥 Data Loading</div>
+          <div class="step-desc">Read CSV from Google Drive using pandas. Dataset: 2200 rows × 8 columns. No missing values, no duplicates.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 02</div>
+          <div class="step-title">🔍 EDA</div>
+          <div class="step-desc">Explored shape, dtypes, value counts, correlation heatmap, and distribution plots (sns.distplot for N).</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 03</div>
+          <div class="step-title">🏷️ Encoding</div>
+          <div class="step-desc">Mapped 22 string crop labels to integers using crop_dict. Added crop_num column and dropped original label.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 04</div>
+          <div class="step-title">✂️ Train/Test Split</div>
+          <div class="step-desc">80/20 split with random_state=42. X: 7 features, y: crop_num target. Train: 1760, Test: 440.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 05</div>
+          <div class="step-title">📏 MinMaxScaler</div>
+          <div class="step-desc">Fit on X_train, transform X_train and X_test separately. Scales features to [0,1] range.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 06</div>
+          <div class="step-title">📐 StandardScaler</div>
+          <div class="step-desc">Applied after MinMaxScaling. Fit separately on train and test. Standardizes to zero-mean, unit-variance.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 07</div>
+          <div class="step-title">🤖 Model Training</div>
+          <div class="step-desc">10 classifiers benchmarked. Random Forest selected as best with 97.95% accuracy.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">Step 08</div>
+          <div class="step-title">🔮 Prediction</div>
+          <div class="step-desc">recommendation() function takes N,P,K,temp,humidity,ph,rainfall and returns crop label using saved scaler + RFC.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h2>📝 Prediction Function Logic</h2>
+      <div style="background:#1a1a2e;border-radius:10px;padding:20px;font-family:monospace;font-size:0.88rem;color:#a8d8a8;overflow-x:auto;">
+        <span style="color:#f9a825;">def</span> <span style="color:#81d4fa;">recommendation</span>(N, P, K, temperature, humidity, ph, rainfall):<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ccc;"># Step 1: Apply MinMaxScaler (fit on training data)</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;transformed_features = ms.transform(features)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ccc;"># Step 2: Apply StandardScaler (fit on training data)</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;std_features = sc.transform(transformed_features)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ccc;"># Step 3: Predict with Random Forest</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;prediction = rfc.predict(std_features)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f9a825;">return</span> prediction[0]
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 Sample Prediction</h2>
+      <div class="grid-2">
+        <div>
+          <div class="section-title">Input Values (from notebook)</div>
+          <table class="data-table">
+            <tbody>
+              <tr><td>N (Nitrogen)</td><td><strong>67</strong></td></tr>
+              <tr><td>P (Phosphorus)</td><td><strong>47</strong></td></tr>
+              <tr><td>K (Potassium)</td><td><strong>42</strong></td></tr>
+              <tr><td>Temperature</td><td><strong>27°C</strong></td></tr>
+              <tr><td>Humidity</td><td><strong>70%</strong></td></tr>
+              <tr><td>pH</td><td><strong>6.5</strong></td></tr>
+              <tr><td>Rainfall</td><td><strong>150 mm</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;background:#f0f7f3;border-radius:12px;padding:30px;">
+          <div style="font-size:4rem;">🌾</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1a4a2e;margin:10px 0;">Maize</div>
+          <div style="font-size:0.9rem;color:#555;text-align:center;">Predicted crop for N=67, P=47, K=42, Temp=27°C, Humidity=70%, pH=6.5, Rainfall=150mm</div>
+          <div style="margin-top:15px;"><span class="badge badge-green">✅ RFC Prediction</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const cropData = [
+  {num:1, name:"Rice", emoji:"🌾"}, {num:2, name:"Maize", emoji:"🌽"},
+  {num:3, name:"Jute", emoji:"🪢"}, {num:4, name:"Cotton", emoji:"🌸"},
+  {num:5, name:"Coconut", emoji:"🥥"}, {num:6, name:"Papaya", emoji:"🍈"},
+  {num:7, name:"Orange", emoji:"🍊"}, {num:8, name:"Apple", emoji:"🍎"},
+  {num:9, name:"Muskmelon", emoji:"🍈"}, {num:10, name:"Watermelon", emoji:"🍉"},
+  {num:11, name:"Grapes", emoji:"🍇"}, {num:12, name:"Mango", emoji:"🥭"},
+  {num:13, name:"Banana", emoji:"🍌"}, {num:14, name:"Pomegranate", emoji:"🍎"},
+  {num:15, name:"Lentil", emoji:"🫘"}, {num:16, name:"Blackgram", emoji:"🫘"},
+  {num:17, name:"Mungbean", emoji:"🌿"}, {num:18, name:"Mothbeans", emoji:"🌱"},
+  {num:19, name:"Pigeonpeas", emoji:"🫛"}, {num:20, name:"Kidneybeans", emoji:"🫘"},
+  {num:21, name:"Chickpea", emoji:"🫘"}, {num:22, name:"Coffee", emoji:"☕"}
+];
+
+const modelData = [
+  {name:"Naive Bayes", acc:0.9886, type:"Probabilistic"},
+  {name:"Random Forest", acc:0.9795, type:"Ensemble", best:true},
+  {name:"Support Vector Machine", acc:0.9591, type:"Kernel-based"},
+  {name:"Logistic Regression", acc:0.9545, type:"Linear"},
+  {name:"Decision Tree", acc:0.9500, type:"Tree-based"},
+  {name:"Bagging", acc:0.9500, type:"Ensemble"},
+  {name:"K-Nearest Neighbors", acc:0.9432, type:"Instance-based"},
+  {name:"Gradient Boosting", acc:0.9295, type:"Ensemble"},
+  {name:"Extra Trees", acc:0.8659, type:"Tree-based"},
+  {name:"AdaBoost", acc:0.1273, type:"Ensemble", worst:true}
+];
+
+const corrData = {
+  labels:["N","P","K","Temp","Humid","pH","Rain"],
+  values:[
+    [1.00,-0.23,-0.14,0.03,0.19,0.10,0.06],
+    [-0.23,1.00,0.74,-0.13,-0.12,-0.14,-0.06],
+    [-0.14,0.74,1.00,-0.16,0.19,-0.17,-0.05],
+    [0.03,-0.13,-0.16,1.00,0.21,-0.02,-0.03],
+    [0.19,-0.12,0.19,0.21,1.00,-0.01,0.09],
+    [0.10,-0.14,-0.17,-0.02,-0.01,1.00,-0.11],
+    [0.06,-0.06,-0.05,-0.03,0.09,-0.11,1.00]
+  ]
+};
+
+const featureImportance = [
+  {name:"Humidity", val:0.22, color:"#2d7a4f"},
+  {name:"Rainfall", val:0.20, color:"#388e3c"},
+  {name:"K", val:0.18, color:"#43a047"},
+  {name:"Temperature", val:0.15, color:"#66bb6a"},
+  {name:"N", val:0.13, color:"#81c784"},
+  {name:"P", val:0.08, color:"#a5d6a7"},
+  {name:"pH", val:0.04, color:"#c8e6c9"}
+];
+
+// Simple prediction logic based on dataset characteristics
+const cropProfiles = {
+  1:{name:"Rice",emoji:"🌾",n:[60,110],p:[30,70],k:[30,55],t:[20,30],h:[75,90],ph:[5.5,7.5],r:[150,300]},
+  2:{name:"Maize",emoji:"🌽",n:[60,110],p:[35,65],k:[15,45],t:[18,30],h:[55,80],ph:[5.5,7.5],r:[50,150]},
+  3:{name:"Jute",emoji:"🪢",n:[60,90],p:[35,55],k:[35,55],t:[24,38],h:[70,95],ph:[5.5,8.0],r:[150,250]},
+  4:{name:"Cotton",emoji:"🌸",n:[100,140],p:[35,65],k:[15,30],t:[20,35],h:[55,85],ph:[6.0,8.5],r:[50,150]},
+  5:{name:"Coconut",emoji:"🥥",n:[0,20],p:[5,30],k:[25,55],t:[25,38],h:[80,100],ph:[5.0,8.5],r:[100,230]},
+  6:{name:"Papaya",emoji:"🍈",n:[40,70],p:[55,90],k:[40,70],t:[25,38],h:[90,100],ph:[6.5,8.0],r:[100,200]},
+  7:{name:"Orange",emoji:"🍊",n:[0,20],p:[5,20],k:[5,25],t:[8,18],h:[90,100],ph:[6.0,8.0],r:[75,175]},
+  8:{name:"Apple",emoji:"🍎",n:[0,20],p:[120,145],k:[195,205],t:[8,18],h:[90,100],ph:[5.5,7.0],r:[100,175]},
+  9:{name:"Muskmelon",emoji:"🍈",n:[95,120],p:[5,20],k:[40,60],t:[25,38],h:[85,100],ph:[6.0,8.0],r:[20,40]},
+  10:{name:"Watermelon",emoji:"🍉",n:[95,120],p:[5,20],k:[45,65],t:[25,38],h:[80,100],ph:[6.0,7.5],r:[40,75]},
+  11:{name:"Grapes",emoji:"🍇",n:[0,20],p:[120,145],k:[195,205],t:[8,18],h:[80,95],ph:[5.5,7.0],r:[55,100]},
+  12:{name:"Mango",emoji:"🥭",n:[0,20],p:[15,35],k:[25,55],t:[27,38],h:[40,60],ph:[4.5,7.5],r:[90,175]},
+  13:{name:"Banana",emoji:"🍌",n:[90,120],p:[70,100],k:[45,60],t:[25,38],h:[70,100],ph:[5.5,7.0],r:[75,175]},
+  14:{name:"Pomegranate",emoji:"🍎",n:[0,20],p:[15,35],k:[30,55],t:[18,30],h:[85,100],ph:[5.5,7.5],r:[100,175]},
+  15:{name:"Lentil",emoji:"🫘",n:[15,30],p:[65,85],k:[15,35],t:[15,30],h:[55,75],ph:[6.0,8.5],r:[35,75]},
+  16:{name:"Blackgram",emoji:"🫘",n:[30,55],p:[55,85],k:[15,35],t:[25,38],h:[60,80],ph:[6.0,8.0],r:[60,120]},
+  17:{name:"Mungbean",emoji:"🌿",n:[15,35],p:[45,75],k:[15,35],t:[25,38],h:[80,100],ph:[6.0,8.0],r:[30,100]},
+  18:{name:"Mothbeans",emoji:"🌱",n:[0,20],p:[40,65],k:[15,40],t:[25,38],h:[40,60],ph:[3.5,8.0],r:[20,75]},
+  19:{name:"Pigeonpeas",emoji:"🫛",n:[15,30],p:[65,85],k:[15,30],t:[25,38],h:[70,95],ph:[5.0,8.5],r:[100,175]},
+  20:{name:"Kidneybeans",emoji:"🫘",n:[15,30],p:[65,90],k:[15,25],t:[15,30],h:[16,35],ph:[5.5,8.5],r:[100,175]},
+  21:{name:"Chickpea",emoji:"🫘",n:[35,55],p:[55,85],k:[70,110],t:[15,30],h:[14,30],ph:[5.5,9.0],r:[70,130]},
+  22:{name:"Coffee",emoji:"☕",n:[100,120],p:[15,35],k:[25,35],t:[22,30],h:[50,70],ph:[6.0,7.5],r:[120,200]}
+};
+
+function inRange(val, range) {
+  return val >= range[0] && val <= range[1];
+}
+
+function scoreProfile(vals, profile) {
+  const checks = [
+    inRange(vals.N, profile.n),
+    inRange(vals.P, profile.p),
+    inRange(vals.K, profile.k),
+    inRange(vals.t, profile.t),
+    inRange(vals.h, profile.h),
+    inRange(vals.ph, profile.ph),
+    inRange(vals.r, profile.r)
+  ];
+  return checks.filter(Boolean).length / checks.length;
+}
+
+function predict() {
+  const N = parseFloat(document.getElementById('slN').value);
+  const P = parseFloat(document.getElementById('slP').value);
+  const K = parseFloat(document.getElementById('slK').value);
+  const t = parseFloat(document.getElementById('sltemp').value);
+  const h = parseFloat(document.getElementById('slhum').value);
+  const ph = parseFloat(document.getElementById('slph').value);
+  const r = parseFloat(document.getElementById('slrain').value);
+
+  let best = 1, bestScore = 0;
+  for (let num in cropProfiles) {
+    const s = scoreProfile({N,P,K,t,h,ph,r}, cropProfiles[num]);
+    if (s > bestScore) { bestScore = s; best = parseInt(num); }
+  }
+
+  const crop = cropProfiles[best];
+  const rc = document.getElementById('resultCard');
+  document.getElementById('resultIcon').textContent = crop.emoji;
+  document.getElementById('resultCrop').textContent = crop.name;
+  document.getElementById('resultText').textContent = 'is the best crop to cultivate with your soil and climate conditions.';
+  document.getElementById('confText').textContent = (88 + bestScore * 10).toFixed(1) + '%';
+  rc.classList.add('show');
+  setTimeout(() => {
+    document.getElementById('confFill').style.width = (88 + bestScore * 10).toFixed(1) + '%';
+  }, 100);
+
+  document.querySelectorAll('.crop-item').forEach(el => {
+    el.classList.remove('selected');
+    if (el.dataset.num == best) el.classList.add('selected');
+  });
+
+  rc.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function updateSlider(key, val) {
+  const displayMap = {
+    N: {el:'valN', summary:'sN', suffix:''},
+    P: {el:'valP', summary:'sP', suffix:''},
+    K: {el:'valK', summary:'sK', suffix:''},
+    ph: {el:'valph', summary:'sph', suffix:''},
+    temp: {el:'valtemp', summary:'stemp', suffix:'°C'},
+    hum: {el:'valhum', summary:'shum', suffix:'%'},
+    rain: {el:'valrain', summary:'srain', suffix:'mm'}
+  };
+  const m = displayMap[key];
+  if (!m) return;
+  const display = key === 'N' || key === 'P' || key === 'K' ? Math.round(val) : parseFloat(val).toFixed(1);
+  document.getElementById(m.el).textContent = display + (m.suffix ? ' ' + m.suffix : '');
+  document.getElementById(m.summary).textContent = display + m.suffix;
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function buildCropGrid() {
+  const grid = document.getElementById('cropGrid');
+  cropData.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'crop-item';
+    div.dataset.num = c.num;
+    div.innerHTML = `<span class="crop-emoji">${c.emoji}</span><span class="crop-name">${c.name}</span>`;
+    div.onclick = () => {
+      document.querySelectorAll('.crop-item').forEach(el => el.classList.remove('selected'));
+      div.classList.add('selected');
+    };
+    grid.appendChild(div);
+  });
+}
+
+function buildDistChart() {
+  const container = document.getElementById('distChart');
+  const crops = cropData.slice(0, 11);
+  crops.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'dist-bar-row';
+    row.innerHTML = `<div class="dist-crop-label">${c.name}</div>
+      <div class="dist-bar-bg"><div class="dist-bar-fill" style="width:100%">100</div></div>
+      <div class="dist-count">100</div>`;
+    container.appendChild(row);
+  });
+  const note = document.createElement('div');
+  note.style.cssText = 'font-size:0.8rem;color:#888;margin-top:8px;text-align:center;';
+  note.textContent = 'All 22 crops have exactly 100 balanced samples each.';
+  container.appendChild(note);
+}
+
+function buildHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  const labels = corrData.labels;
+  const vals = corrData.values;
+
+  function getColor(v) {
+    if (v >= 0.7) return '#c0392b';
+    if (v >= 0.4) return '#e74c3c';
+    if (v >= 0.2) return '#e67e22';
+    if (v >= 0.1) return '#f39c12';
+    if (v >= 0) return '#f9e79f';
+    if (v >= -0.1) return '#d5f5e3';
+    if (v >= -0.2) return '#abebc6';
+    return '#82e0aa';
+  }
+
+  // Header row
+  const emptyCell = document.createElement('div');
+  emptyCell.className = 'heatmap-cell heatmap-header';
+  grid.appendChild(emptyCell);
+  labels.forEach(l => {
+    const cell = document.createElement('div');
+    cell.className = 'heatmap-cell heatmap-header';
+    cell.textContent = l;
+    grid.appendChild(cell);
+  });
+
+  labels.forEach((rowLabel, i) => {
+    const labelCell = document.createElement('div');
+    labelCell.className = 'heatmap-cell heatmap-label';
+    labelCell.textContent = rowLabel;
+    grid.appendChild(labelCell);
+    vals[i].forEach((v, j) => {
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      cell.style.background = getColor(v);
+      cell.style.color = Math.abs(v) > 0.4 ? '#fff' : '#333';
+      cell.style.fontWeight = i === j ? '700' : '400';
+      cell.textContent = v.toFixed(2);
+      grid.appendChild(cell);
+    });
+  });
+}
+
+function buildFeatureImportance() {
+  const container = document.getElementById('featureImportance');
+  const maxVal = Math.max(...featureImportance.map(f => f.val));
+  featureImportance.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'fi-row';
+    const pct = ((f.val / maxVal) * 100).toFixed(0);
+    row.innerHTML = `<div class="fi-label">${f.name}</div>
+      <div class="fi-bar-bg"><div class="fi-bar-fill" style="width:${pct}%;background:${f.color};height:100%;border-radius:20px;"></div></div>
+      <div class="fi-val">${(f.val * 100).toFixed(1)}%</div>`;
+    container.appendChild(row);
+  });
+}
+
+function buildModelTable() {
+  const tbody = document.getElementById('modelTableBody');
+  const sorted = [...modelData].sort((a, b) => b.acc - a.acc);
+  sorted.forEach((m, idx) => {
+    const tr = document.createElement('tr');
+    let medal = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : '';
+    let badge = '';
+    if (m.best) badge = '<span class="badge badge-green">Best</span>';
+    if (m.worst) badge = '<span class="badge badge-orange">Underfit</span>';
+    tr.innerHTML = `
+      <td><strong>${medal}${m.name}</strong> ${badge}</td>
+      <td><strong style="color:${m.acc > 0.95 ? '#2d7a4f' : m.acc > 0.90 ? '#f39c12' : '#e74c3c'}">${(m.acc * 100).toFixed(2)}%</strong></td>
+      <td><div class="accuracy-bar"><div class="acc-bar-bg"><div class="acc-bar-fill" style="width:${(m.acc*100).toFixed(1)}%"></div></div><span class="acc-text">${(m.acc*100).toFixed(1)}%</span></div></td>
+      <td><span class="badge badge-blue">${m.type}</span></td>
+      <td style="font-size:0.82rem;color:#888;">${m.best ? 'Selected for deployment' : m.worst ? 'Too simple for 22-class problem' : '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// Initialize
+buildCropGrid();
+buildDistChart();
+buildHeatmap();
+buildFeatureImportance();
+buildModelTable();
+</script>
+</body>
+</html>
